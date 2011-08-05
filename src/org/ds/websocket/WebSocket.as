@@ -41,7 +41,7 @@ package org.ds.websocket
 		/**
 		 * Class Properties & Methods
 		 */
-		private static const MaxBytes	:uint	= 20 * 1024 * 1024;
+		private static const MaxBytes	:uint	= 256 * 1024;
 		public  static const Closed	    :String = "Closed";
 		public  static const Connecting	:String = "Connecting";
 		private static const Negotiating:String = "Negotiating";
@@ -96,6 +96,7 @@ package org.ds.websocket
 				socket.writeByte(0x00);
 				socket.flush();
 				socket.close();
+				state = Closed;
 			}
 		}
 		
