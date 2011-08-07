@@ -25,83 +25,78 @@
  **/
 
 package {
-	
-	import flash.display.Sprite;
-	import flash.external.ExternalInterface;
-	import flash.system.Security;
-	
-	import org.ds.fsm.StateEvent;
-	import org.ds.logging.LogEvent;
-	import org.ds.logging.Logger;
-	import org.ds.websocket.WebSocket;
-	import org.ds.websocket.WebSocketEvent;
+  
+  import flash.display.Sprite;
+  import flash.external.ExternalInterface;
+  import flash.system.Security;
+  
+  import org.ds.fsm.StateEvent;
+  import org.ds.logging.LogEvent;
+  import org.ds.logging.Logger;
+  import org.ds.websocket.WebSocket;
+  import org.ds.websocket.WebSocketEvent;
 
-	public class WebSocketProxy extends Sprite
-	{
-		private var logger :Logger = new Logger(1);
-		private var socket :WebSocket;
-		
-		public function WebSocketProxy()
-		{			
-			Security.allowDomain("*");
-			Security.allowInsecureDomain("*");
-			
-			if(ExternalInterface.available) {
-				
-				logger.addEventListener(LogEvent.ENTRY, function(e:LogEvent):void {
-					ExternalInterface.call("WebSocketProxy.onlog", e.toString());
-				});
-				
-				ExternalInterface.addCallback("open", this.open);
-				ExternalInterface.addCallback("close", this.close);
-				ExternalInterface.addCallback("send", this.send);
-				
-				ExternalInterface.call("WebSocketProxy.ready");
-				
-			} else {
-				throw new Error("Unable to access External Interface");
-			}			
-		}
-		
-		private function open(uri:String):void {
-			if(WebSocket.isValidURI(uri)) {
-				try {
-					socket = new WebSocket(uri);
-					socket.addEventListener(WebSocketEvent.MESSAGE, onMessage);
-					socket.addEventListener(WebSocket.Closed, onClose);
-					socket.addEventListener(WebSocket.Connected, onOpen);
-				} catch(e:Error) {
-					Logger.info("Error creating websocket for URI", uri);
-					Logger.debug(e.getStackTrace());
-				}
-			} else {
-				Logger.debug("Invalid WebSocket URI");
-			}
-		}
-		
-		private function close():void {
-			if(socket) {
-				socket.close();
-			}
-		}
-		
-		private function send(message:String):void {
-			if(socket) {
-				socket.send(message);
-			}
-		}
-		
-		private function onOpen(e:StateEvent):void {
-			ExternalInterface.call("WebSocketProxy.onopen");
-		}
-				
-		private function onMessage(e:WebSocketEvent):void {
-			ExternalInterface.call("WebSocketProxy.onmessage", e.data);
-		}
-		
-		private function onClose(e:StateEvent):void {
-			ExternalInterface.call("WebSocketProxy.onclose");
-		}
-		
-	}
+  public class WebSocketProxy extends Sprite
+  {
+    private var logger :Logger = new Logger(1);
+    private var socket :WebSocket;
+    
+    public function WebSocketProxy()
+    {     
+      Security.allowDomain("*");
+      Security.allowInsecureDomain("*");
+      
+      if(ExternalInterface.available) {
+        
+        logger.addEventListener(LogEvent.ENTRY, function(e:LogEvent):void {
+          ExternalInterface.call("WebSocketProxy.onlog", e.toString());
+        });
+        
+        ExternalInterface.addCallback("open", this.open);
+        ExternalInterface.addCallback("close", this.close);
+        ExternalInterface.addCallback("send", this.send);
+        
+        ExternalInterface.call("WebSocketProxy.ready");
+        
+      } else {
+        throw new Error("Unable to access External Interface");
+      }     
+    }
+    
+    private function open(uri:String):void {
+	    try {
+	      socket = new WebSocket(uri);
+	      socket.addEventListener(WebSocketEvent.MESSAGE, onMessage);
+	      socket.addEventListener(WebSocket.Closed, onClose);
+	      socket.addEventListener(WebSocket.Connected, onOpen);
+	    } catch(e:Error) {
+	      Logger.info("Error creating websocket for URI", uri);
+	      Logger.debug(e.getStackTrace());
+	    }
+    }
+    
+    private function close():void {
+      if(socket) {
+        socket.close();
+	  }
+    }
+    
+    private function send(message:String):void {
+      if(socket) {
+        socket.send(message);
+      }
+    }
+    
+    private function onOpen(e:StateEvent):void {
+      ExternalInterface.call("WebSocketProxy.onopen");
+    }
+        
+    private function onMessage(e:WebSocketEvent):void {
+      ExternalInterface.call("WebSocketProxy.onmessage", e.data);
+    }
+    
+    private function onClose(e:StateEvent):void {
+      ExternalInterface.call("WebSocketProxy.onclose");
+    }
+  }
 }

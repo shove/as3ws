@@ -15,7 +15,7 @@
  */
 package com.hurlant.crypto.hash
 {
-	
+	import flash.utils.ByteArray;
 
 	public class SHA1 extends SHABase implements IHash
 	{

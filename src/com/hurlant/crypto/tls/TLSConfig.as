@@ -24,23 +24,18 @@ package com.hurlant.crypto.tls {
 		public var cipherSuites:Array;
 		
 		public var compressions:Array;
-		public var ignoreCommonNameMismatch:Boolean = false;
-		public var trustAllCertificates:Boolean = false;
-		public var trustSelfSignedCertificates:Boolean = false;
-		public var promptUserForAcceptCert:Boolean = false;
+		
 		public var CAStore:X509CertificateCollection;
-		public var localKeyStore:X509CertificateCollection;
-		public var version:uint;
 		
 		public function TLSConfig(	entity:uint, cipherSuites:Array = null, compressions:Array = null, 
-									certificate:ByteArray = null, privateKey:RSAKey = null, CAStore:X509CertificateCollection = null, ver:uint = 0x00) {
+									certificate:ByteArray = null, privateKey:RSAKey = null, CAStore:X509CertificateCollection = null) {
 			this.entity = entity;
 			this.cipherSuites = cipherSuites;
 			this.compressions = compressions;
 			this.certificate = certificate;
 			this.privateKey = privateKey;
 			this.CAStore = CAStore;
-			this.version = ver;
+			
 			// default settings.
 			if (cipherSuites==null) {
 				this.cipherSuites = CipherSuites.getDefaultSuites();
@@ -52,11 +47,6 @@ package com.hurlant.crypto.tls {
 			if (CAStore==null) {
 				this.CAStore = new MozillaRootCertificates;
 			}
-			
-			if (ver==0x00) {
-				// Default to TLS
-				this.version = TLSSecurityParameters.PROTOCOL_VERSION;
-			} 
 		}
 		
 		public function setPEMCertificate(cert:String, key:String = null):void {

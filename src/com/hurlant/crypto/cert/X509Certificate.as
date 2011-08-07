@@ -20,19 +20,16 @@ package com.hurlant.crypto.cert {
 	import com.hurlant.util.der.OID;
 	import com.hurlant.util.der.ObjectIdentifier;
 	import com.hurlant.util.der.PEM;
+	import com.hurlant.util.der.PrintableString;
 	import com.hurlant.util.der.Sequence;
 	import com.hurlant.util.der.Type;
-	import com.hurlant.util.der.Type2;
 	
 	import flash.utils.ByteArray;
-	import flash.utils.getTimer;
 	
 	public class X509Certificate {
 		private var _loaded:Boolean;
 		private var _param:*;
-		//private var _obj:Object; // old ASN-1 parsing
-		private var _obj2:Object; // new ASN-1 library
-		
+		private var _obj:Object;
 		public function X509Certificate(p:*) {
 			_loaded = false;
 			_param = p;
@@ -48,13 +45,7 @@ package com.hurlant.crypto.cert {
 				b = p;
 			}
 			if (b!=null) {
-				var t1:int = getTimer();
-				//_obj = DER.parse(b, Type.TLS_CERT);
-				//trace("Type 1 method: "+(getTimer()-t1)+"ms");
-				//b.position = 0;
-				t1 = getTimer();
-				_obj2 = Type2.Certificate.fromDER(b, b.length);
-				trace("Type 2 method: "+(getTimer()-t1)+"ms");
+				_obj = DER.parse(b, Type.TLS_CERT);
 				_loaded = true;
 			} else {
 				throw new Error("Invalid x509 Certificate parameter: "+p);
@@ -119,11 +110,9 @@ package com.hurlant.crypto.cert {
 				default:
 					return false;
 			}
-			//var data:ByteArray = _obj.signedCertificate_bin;
-			var data:ByteArray = _obj2.toBeSigned_bin;
+			var data:ByteArray = _obj.signedCertificate_bin;
 			var buf:ByteArray = new ByteArray;
-			//key.verify(_obj.encrypted, buf, _obj.encrypted.length);
-			key.verify(_obj2.signature, buf, _obj2.signature.length);
+			key.verify(_obj.encrypted, buf, _obj.encrypted.length);
 			buf.position=0;
 			data = hash.hash(data);
 			var obj:Object = DER.parse(buf, Type.RSA_SIGNATURE);
@@ -165,8 +154,7 @@ package com.hurlant.crypto.cert {
 				default:
 					return null
 			}
-			//var data:ByteArray = _obj.signedCertificate_bin;
-			var data:ByteArray = _obj2.toBeSigned_bin;
+			var data:ByteArray = _obj.signedCertificate_bin;
 			data = hash.hash(data);
 			var seq1:Sequence = new Sequence;
 			seq1[0] = new Sequence;
@@ -182,8 +170,7 @@ package com.hurlant.crypto.cert {
 		
 		public function getPublicKey():RSAKey {
 			load();
-			//var pk:ByteArray = _obj.signedCertificate.subjectPublicKeyInfo.subjectPublicKey as ByteArray;
-			var pk:ByteArray = _obj2.toBeSigned.subjectPublicKeyInfo.subjectPublicKey as ByteArray;
+			var pk:ByteArray = _obj.signedCertificate.subjectPublicKeyInfo.subjectPublicKey as ByteArray;
 			pk.position = 0;
 			var rsaKey:Object = DER.parse(pk, [{name:"N"},{name:"E"}]);
 			return new RSAKey(rsaKey.N, rsaKey.E.valueOf());
@@ -199,8 +186,7 @@ package com.hurlant.crypto.cert {
 		 */
 		public function getSubjectPrincipal():String {
 			load();
-			//return Base64.encodeByteArray(_obj.signedCertificate.subject_bin);
-			return Base64.encodeByteArray(_obj2.toBeSigned.subject_bin);
+			return Base64.encodeByteArray(_obj.signedCertificate.subject_bin);
 		}
 		/**
 		 * Returns an issuer principal, as an opaque base64 string.
@@ -212,36 +198,21 @@ package com.hurlant.crypto.cert {
 		 */
 		public function getIssuerPrincipal():String {
 			load();
-			//return Base64.encodeByteArray(_obj.signedCertificate.issuer_bin);
-			return Base64.encodeByteArray(_obj2.toBeSigned.issuer_bin);
+			return Base64.encodeByteArray(_obj.signedCertificate.issuer_bin);
 		}
 		public function getAlgorithmIdentifier():String {
-			//return _obj.algorithmIdentifier.algorithmId.toString();
-			return _obj2.algorithm.algorithm.toString();
+			return _obj.algorithmIdentifier.algorithmId.toString();
 		}
 		public function getNotBefore():Date {
-			//return _obj.signedCertificate.validity.notBefore.date;
-			return _obj2.toBeSigned.validity.notBefore.utcTime;
+			return _obj.signedCertificate.validity.notBefore.date;
 		}
 		public function getNotAfter():Date {
-			//return _obj.signedCertificate.validity.notAfter.date;
-			return _obj2.toBeSigned.validity.notAfter.utcTime;
+			return _obj.signedCertificate.validity.notAfter.date;
 		}
 		
 		public function getCommonName():String {
-			//var subject:Sequence = _obj.signedCertificate.subject;
-			var subject:Array = _obj2.toBeSigned.subject.sequence;
-			for (var i:int=0;i<subject.length;i++) {
-				var e:Object = subject[i][0];
-				if (e.commonName) {
-					// not sure I like this.
-					var obj:* = e.commonName.value, val:*;
-					for (var t:String in obj) { val=obj[t]; break}
-					return val;
-				}
-			}
-//			return (subject.findAttributeValue(OID.COMMON_NAME) as PrintableString).getString();
-			return "hi";
+			var subject:Sequence = _obj.signedCertificate.subject;
+			return (subject.findAttributeValue(OID.COMMON_NAME) as PrintableString).getString();
 		}
 	}
 }

@@ -9,13 +9,9 @@
 package com.hurlant.util.der
 {
 	import com.hurlant.util.Hex;
-	import com.hurlant.util.asn1.type.ASN1Type;
 	
 	public class Type
 	{
-
-		private var test:ASN1Type = Type2.Certificate;
-		
 		public static const TLS_CERT:Array = [ 
 			{name:"signedCertificate", extract:true, value: [
 				{name:"versionHolder", optional:true, value: [

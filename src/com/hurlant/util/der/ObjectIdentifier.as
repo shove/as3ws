@@ -7,18 +7,17 @@
  * 
  * See LICENSE.txt for full license information.
  */
-package com.hurlant.util.der {
-	import flash.net.registerClassAlias;
+package com.hurlant.util.der
+{
 	import flash.utils.ByteArray;
 	
-	public class ObjectIdentifier implements IAsn1Type {
-		registerClassAlias("com.hurlant.util.der.ObjectIdentifier", ObjectIdentifier);
-		
+	public class ObjectIdentifier implements IAsn1Type
+	{
 		private var type:uint;
 		private var len:uint;
 		private var oid:Array;
 		
-		public function ObjectIdentifier(type:uint=0, length:uint=0, b:*=null) {
+		public function ObjectIdentifier(type:uint, length:uint, b:*) {
 			this.type = type;
 			this.len = length;
 			if (b is ByteArray) {

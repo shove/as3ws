@@ -2,3 +2,8 @@
 libs
 proxy.swf
 proxy-secure.swf
+.actionScriptProperties
+.project
+.settings/
+bin-debug/
+html-template/

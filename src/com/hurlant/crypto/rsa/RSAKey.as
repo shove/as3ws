@@ -25,7 +25,6 @@ package com.hurlant.crypto.rsa
 	import com.hurlant.util.der.Sequence;
 	import com.hurlant.util.der.ObjectIdentifier;
 	import com.hurlant.util.der.ByteString;
-	import com.hurlant.crypto.tls.TLSError;
 	
 	/**
 	 * Current limitations:
@@ -62,26 +61,23 @@ package com.hurlant.crypto.rsa
 			this.dmp1 = DP;
 			this.dmq1 = DQ;
 			this.coeff = C;
-			
 			// adjust a few flags.
 			canEncrypt = (n!=null&&e!=0);
 			canDecrypt = (canEncrypt&&d!=null);
-			
-			
 		}
-
+
 		public static function parsePublicKey(N:String, E:String):RSAKey {
-			return new RSAKey(new BigInteger(N, 16, true), parseInt(E,16));
+			return new RSAKey(new BigInteger(N, 16), parseInt(E,16));
 		}
 		public static function parsePrivateKey(N:String, E:String, D:String, 
 			P:String=null,Q:String=null, DMP1:String=null, DMQ1:String=null, IQMP:String=null):RSAKey {
 			if (P==null) {
-				return new RSAKey(new BigInteger(N,16, true), parseInt(E,16), new BigInteger(D,16, true));
+				return new RSAKey(new BigInteger(N,16), parseInt(E,16), new BigInteger(D,16));
 			} else {
-				return new RSAKey(new BigInteger(N,16, true), parseInt(E,16), new BigInteger(D,16, true),
-					new BigInteger(P,16, true), new BigInteger(Q,16, true),
-					new BigInteger(DMP1,16, true), new BigInteger(DMQ1, 16, true),
-					new BigInteger(IQMP, 16, true));
+				return new RSAKey(new BigInteger(N,16), parseInt(E,16), new BigInteger(D,16),
+					new BigInteger(P,16), new BigInteger(Q,16),
+					new BigInteger(DMP1,16), new BigInteger(DMQ1),
+					new BigInteger(IQMP));				
 			}
 		}
 		
@@ -94,14 +90,14 @@ package com.hurlant.crypto.rsa
 			n = null;
 			Memory.gc();
 		}
-
+
 		public function encrypt(src:ByteArray, dst:ByteArray, length:uint, pad:Function=null):void {
 			_encrypt(doPublic, src, dst, length, pad, 0x02);
 		}
 		public function decrypt(src:ByteArray, dst:ByteArray, length:uint, pad:Function=null):void {
 			_decrypt(doPrivate2, src, dst, length, pad, 0x02);
 		}
-
+
 		public function sign(src:ByteArray, dst:ByteArray, length:uint, pad:Function = null):void {
 			_encrypt(doPrivate2, src, dst, length, pad, 0x01);
 		}
@@ -109,7 +105,7 @@ package com.hurlant.crypto.rsa
 			_decrypt(doPublic, src, dst, length, pad, 0x01);
 		}
 		
-
+
 		private function _encrypt(op:Function, src:ByteArray, dst:ByteArray, length:uint, pad:Function, padType:int):void {
 			// adjust pad if needed
 			if (pad==null) pad = pkcs1pad;
@@ -120,7 +116,7 @@ package com.hurlant.crypto.rsa
 			var bl:uint = getBlockSize();
 			var end:int = src.position + length;
 			while (src.position<end) {
-				var block:BigInteger = new BigInteger(pad(src, end, bl, padType), bl, true);
+				var block:BigInteger = new BigInteger(pad(src, end, bl, padType), bl);
 				var chunk:BigInteger = op(block);
 				chunk.toArray(dst);
 			}
@@ -136,12 +132,9 @@ package com.hurlant.crypto.rsa
 			var bl:uint = getBlockSize();
 			var end:int = src.position + length;
 			while (src.position<end) {
-				var block:BigInteger = new BigInteger(src, bl, true);
+				var block:BigInteger = new BigInteger(src, length);
 				var chunk:BigInteger = op(block);
-				var b:ByteArray = pad(chunk, bl, padType);
-				if (b == null) 
-					 throw new TLSError( "Decrypt error - padding function returned null!", TLSError.decode_error );
-				// if (b != null)
+				var b:ByteArray = pad(chunk, bl);
 				dst.writeBytes(b);
 			}
 		}
@@ -160,19 +153,11 @@ package com.hurlant.crypto.rsa
 				out[--n] = src[i--];
 			}
 			out[--n] = 0;
-			if (type==0x02) { // type 2
-				var rng:Random = new Random;
+			var rng:Random = new Random;
+			while (n>2) {
 				var x:int = 0;
-				while (n>2) {
-					do {
-						x = rng.nextByte();
-					} while (x==0);
-					out[--n] = x;
-				}
-			} else { // type 1
-				while (n>2) {
-					out[--n] = 0xFF;
-				}
+				while (x==0) x = (type==0x02)?rng.nextByte():0xFF;
+				out[--n] = x;
 			}
 			out[--n] = type;
 			out[--n] = 0;
@@ -190,12 +175,10 @@ package com.hurlant.crypto.rsa
 		private function pkcs1unpad(src:BigInteger, n:uint, type:uint = 0x02):ByteArray {
 			var b:ByteArray = src.toByteArray();
 			var out:ByteArray = new ByteArray;
-			
-			b.position = 0;
 			var i:int = 0;
 			while (i<b.length && b[i]==0) ++i;
-			if (b.length-i != n-1 || b[i]!=type) {
-				trace("PKCS#1 unpad: i="+i+", expected b[i]=="+type+", got b[i]="+b[i].toString(16));
+			if (b.length-i != n-1 || b[i]>2) {
+				trace("PKCS#1 unpad: i="+i+", expected b[i]==[0,1,2], got b[i]="+b[i].toString(16));
 				return null;
 			}
 			++i;
@@ -214,11 +197,8 @@ package com.hurlant.crypto.rsa
 		/**
 		 * Raw pad.
 		 */
-		public function rawpad(src:ByteArray, end:int, n:uint, type:uint = 0):ByteArray {
+		private function rawpad(src:ByteArray, end:int, n:uint):ByteArray {
 			return src;
-		}
-		public function rawunpad(src:BigInteger, n:uint, type:uint = 0):ByteArray {
-			return src.toByteArray();
 		}
 		
 		public function toString():String {
@@ -258,7 +238,7 @@ package com.hurlant.crypto.rsa
 			var qs:uint = B>>1;
 			var key:RSAKey = new RSAKey(null,0,null);
 			key.e = parseInt(E, 16);
-			var ee:BigInteger = new BigInteger(E,16, true);
+			var ee:BigInteger = new BigInteger(E,16);
 			for (;;) {
 				for (;;) {
 					key.p = bigRandom(B-qs, rng);
@@ -295,7 +275,7 @@ package com.hurlant.crypto.rsa
 			var x:ByteArray = new ByteArray;
 			rnd.nextBytes(x, (bits>>3));
 			x.position = 0;
-			var b:BigInteger = new BigInteger(x,0,true);
+			var b:BigInteger = new BigInteger(x);
 			b.primify(bits, 1);
 			return b;
 		}

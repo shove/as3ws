@@ -9,7 +9,6 @@
 package com.hurlant.crypto
 {
 	import com.hurlant.crypto.hash.HMAC;
-	import com.hurlant.crypto.hash.MAC;
 	import com.hurlant.crypto.hash.IHash;
 	import com.hurlant.crypto.hash.MD2;
 	import com.hurlant.crypto.hash.MD5;
@@ -254,19 +253,6 @@ package com.hurlant.crypto
 			}
 			return new HMAC(getHash(keys[0]), bits);
 		}
-		
-
-		public static function getMAC(name:String):MAC {
-			
-			var keys:Array = name.split("-");
-			if (keys[0]=="mac") keys.shift();
-			var bits:uint = 0;
-			if (keys.length > 1) {
-				bits = parseInt(keys[1]);
-			}
-			return new MAC(getHash(keys[0]), bits);
-		}
-				
 		
 		public static function getPad(name:String):IPad {
 			switch(name) {

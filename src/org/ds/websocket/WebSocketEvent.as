@@ -26,21 +26,20 @@
 package org.ds.websocket
 {
 	import flash.events.Event;
-
+	
 	public class WebSocketEvent extends Event
 	{
-		public static var OPEN		:String = "OPEN";
-		public static var CLOSE		:String = "CLOSE";
-		public static var MESSAGE	:String = "MESSAGE";
+		public static var OPEN    :String = "OPEN";
+		public static var CLOSE   :String = "CLOSE";
+		public static var MESSAGE :String = "MESSAGE";
 		
-		private var buffer	:String;
-		private var sock	:WebSocket;
+		private var buffer  :String;
+		private var sock  :WebSocket;
 		
-		public function WebSocketEvent(type:String, data:String, socket:WebSocket, bubbles:Boolean=false, cancelable:Boolean=false)
+		public function WebSocketEvent(type:String, data:String, socket:WebSocket=null, bubbles:Boolean=false, cancelable:Boolean=false)
 		{
-			buffer  = data;
-			sock 	= socket;
-			
+			buffer = data;
+			sock = socket;  
 			super(type, bubbles, cancelable);
 		}
 		

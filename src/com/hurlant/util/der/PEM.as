@@ -80,7 +80,7 @@ package com.hurlant.util.der
 					return null;
 				}
 				// arr[1] is a ByteArray begging to be parsed as DER
-				arr[1].position = 0; // there's a 0x00 byte up front. find out why later. like, read a spec.
+				arr[1].position = 1; // there's a 0x00 byte up front. find out why later. like, read a spec.
 				obj = DER.parse(arr[1]);
 				if (obj is Array) {
 					arr = obj as Array;

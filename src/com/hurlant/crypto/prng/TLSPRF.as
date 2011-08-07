@@ -61,6 +61,7 @@ package com.hurlant.crypto.prng
 			this.seed = s;
 			this.s1 = s1;
 			this.s2 = s2;
+			
 			hmac_md5 = new HMAC(new MD5);
 			hmac_sha1 = new HMAC(new SHA1);
 			
@@ -77,7 +78,6 @@ package com.hurlant.crypto.prng
 			d2.position = SHA1.HASH_SIZE;
 			d2.writeBytes(this.seed);
 		}
-		
 		// XXX HORRIBLY SLOW. REWRITE.
 		public function nextBytes(buffer:IDataOutput, length:int):void {
 			while (length--) {

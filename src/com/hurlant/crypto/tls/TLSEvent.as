@@ -15,7 +15,6 @@ package com.hurlant.crypto.tls {
 		
 		static public const DATA:String = "data";
 		static public const READY:String = "ready";
-		static public const PROMPT_ACCEPT_CERT:String = "promptAcceptCert";
 		
 		public var data:ByteArray;
 		

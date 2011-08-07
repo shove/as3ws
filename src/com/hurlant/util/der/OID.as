@@ -17,7 +17,6 @@ package com.hurlant.util.der
 		public static const SHA1_WITH_RSA_ENCRYPTION:String = "1.2.840.113549.1.1.5";
 		public static const MD2_ALGORITHM:String = "1.2.840.113549.2.2";
 		public static const MD5_ALGORITHM:String = "1.2.840.113549.2.5";
-		public static const PKCS9_UNSTRUCTURED_NAME:String = "1.2.840.113549.1.9.2";
 		public static const DSA:String = "1.2.840.10040.4.1";
 		public static const DSA_WITH_SHA1:String = "1.2.840.10040.4.3";
 		public static const DH_PUBLIC_NUMBER:String = "1.2.840.10046.2.1";

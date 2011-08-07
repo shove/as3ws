@@ -12,7 +12,7 @@ package com.hurlant.crypto.hash
 	import flash.utils.ByteArray;
 	import com.hurlant.util.Hex;
 	
-	public class HMAC implements IHMAC
+	public class HMAC
 	{
 		private var hash:IHash;
 		private var bits:uint;

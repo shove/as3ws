@@ -12,7 +12,6 @@ package com.hurlant.crypto.tls {
 	import flash.utils.ByteArray;
 	import com.hurlant.crypto.symmetric.ICipher;
 	import com.hurlant.crypto.symmetric.TLSPad;
-	import com.hurlant.crypto.symmetric.SSLPad;
 	
 	public class BulkCiphers {
 		public static const STREAM_CIPHER:uint = 0;
@@ -74,12 +73,8 @@ package com.hurlant.crypto.tls {
 		public static function getBlockSize(cipher:uint):uint {
 			return getProp(cipher).blockSize;
 		}
-		public static function getCipher(cipher:uint, key:ByteArray, proto:uint):ICipher {
-			if (proto == TLSSecurityParameters.PROTOCOL_VERSION) {
-				return Crypto.getCipher(algos[cipher], key, new TLSPad);
-			} else {
-				return Crypto.getCipher(algos[cipher], key, new SSLPad);
-			}
+		public static function getCipher(cipher:uint, key:ByteArray):ICipher {
+			return Crypto.getCipher(algos[cipher], key, new TLSPad);
 		}
 
 	

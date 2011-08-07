@@ -25,7 +25,11 @@
  **/
 package org.ds.websocket
 {
+	import com.hurlant.crypto.tls.*;
+	import com.hurlant.util.Base64;
+	
 	import flash.events.Event;
+	import flash.events.EventDispatcher;
 	import flash.events.IOErrorEvent;
 	import flash.events.ProgressEvent;
 	import flash.net.Socket;
@@ -35,50 +39,50 @@ package org.ds.websocket
 	
 	import org.ds.fsm.StateMachine;
 	import org.ds.logging.Logger;
-
+	
 	public class WebSocket extends StateMachine
 	{
 		/**
 		 * Class Properties & Methods
 		 */
-		private static const MaxBytes	:uint	= 256 * 1024;
-		public  static const Closed	    :String = "Closed";
-		public  static const Connecting	:String = "Connecting";
+		public  static const Closed     :String = "Closed";
+		public  static const Connecting :String = "Connecting";
 		private static const Negotiating:String = "Negotiating";
-		public 	static const Connected	:String = "Connected";
-		private static const Matcher	:RegExp	= /^(wss?)\:\/\/([^\/|\:]+)(\:(\d+))?(\/.*)?$/i;
+		public  static const Connected  :String = "Connected";
 		
-		private static const Unknown	:uint	= 1;
-		private static const FixedLen	:uint	= 2;
-		private static const HighOrder	:uint	= 3;
-		
-		public static function isValidURI(uri:String):Boolean {
-			return Matcher.test(uri);
-		}
 		
 		/**
 		 * Instance Properties & Methods
 		 */ 
 		
-		private var socket		:Socket;
-		private var settings	:Object;
-		private var headers		:Object     = {};
-		private var headersum	:uint		= 0;
-		private var queue		:Array      = [];
-		private var buffer		:ByteArray	= new ByteArray();
-		private var byte		:uint		= 0;
-		private var frameType	:uint		= Unknown;
-
+		private var socket    :Socket;
+		private var settings  :Object;
+		private var headers   :Object     = {};
+		private var queue   :Array      = [];
+		
+		private var decoder:WebSocketDecoder = new WebSocketDecoder();
+		private var negotiator:WebSocketNegotiator = new WebSocketNegotiator();
+		private var processor:WebSocketProcessor = negotiator;
+		
+		
 		public function WebSocket(host:String)
 		{
 			super(Closed);
-
+			
+			negotiator.addEventListener("Complete", function():void {
+				state = Connected;
+			});
+			
+			negotiator.addEventListener("Fail", function():void {
+				state = Closed;
+			});
+			
 			defineTransition("*", Connected, flushQueue);
 			settings = parseUri(host);
-
+			
 			connect();
 		}
-
+		
 		
 		public function get secure():Boolean {
 			return settings.scheme == "wss";
@@ -92,11 +96,11 @@ package org.ds.websocket
 				Logger.info(message);
 			}
 			if(socket.connected) {
+				state = Closed;
 				socket.writeByte(0xFF);
 				socket.writeByte(0x00);
 				socket.flush();
 				socket.close();
-				state = Closed;
 			}
 		}
 		
@@ -119,36 +123,34 @@ package org.ds.websocket
 		 * it's usable parts (domain, port, path)
 		 */ 
 		private function parseUri(uri:String):Object {
-			if(!isValidURI(uri)) {
+			
+			var regex:RegExp = /^(wss?)\:\/\/([^\/|\:]+)(\:(\d+))?(\/.*)?$/i
+			
+			if(!regex.test(uri)) {
 				throw new Error("Invalid WebSocket URI... Exiting");
 			}
 			
-			var parsed:* = Matcher.exec(uri);
+			var parsed:* = regex.exec(uri);
 			var result:* = {
-				scheme	: parsed[1],
-				domain	: parsed[2],
-				path	: parsed[5] || "/",
-				port	: parsed[4] ? parsed[4] : (parsed[1] == "ws" ? 80 : 443),
-				host	: parsed[2] + (parsed[4] ? ":" + parsed[4] : "")
+				scheme  : parsed[1],
+				domain  : parsed[2],
+				path  : parsed[5] || "/",
+					port  : parsed[4] ? parsed[4] : (parsed[1] == "ws" ? 80 : 443),
+					host  : parsed[2] + (parsed[4] ? ":" + parsed[4] : "")
 			};
-				
+			
 			return result;
 		}
 		
 		/**
 		 * Once the socket connection is open, we send
 		 * out the HTTP style headers to handshake and
-		 * negotiate the connection
+		 * negotiate the connection 
 		 */ 
 		private function onOpen(e:Event):void {
 			state = Negotiating;
 			socket.writeUTFBytes(
-				StringUtil.substitute(""
-					+ "GET {1} HTTP/1.1{0}"
-					+ "Upgrade: WebSocket{0}"
-					+ "Connection: Upgrade{0}"
-					+ "Host: {2}{0}"
-					+ "Origin: null{0}{0}", "\r\n", settings.path, settings.host)
+				negotiator.buildRequest(settings.host, settings.path)
 			);
 			socket.flush();
 		}
@@ -160,133 +162,10 @@ package org.ds.websocket
 		 * and parse the data out based on the frame type
 		 */ 
 		private function onSocketEvent(e:ProgressEvent):void {
-			
-			if(state == Negotiating) {				
-				completeHandshake();
-				if(state == Negotiating) {
-					return;
-				}
-			}
-
-			while (socket.connected && socket.bytesAvailable > 0) {
-									
-				byte = socket.readUnsignedByte();
-				
-				if(frameType == Unknown) {
-
-					buffer.clear();
-					buffer.position = 0;
-					
-					if((byte & 0x80) == 0x80)  {
-						
-						/*frameType = FixedLen;
-						
-						var len	:uint = 0;
-						var bv  :uint = 0;
-						
-						while(true) {
-							byte = socket.readUnsignedByte();
-							bv   = byte & 0x7f;
-							len	 = len * 128 + bv;
-							if((byte & 0x80) != 0x80) {
-								break;
-							}
-						}
-
-						if(len > MaxBytes) {
-							return close("Max Frame Size exceeded!  Exiting");
-						}
-						
-						if(byte == 0xff && len == 0) {
-							close();
-						}
-
-						bytesLeft = len;*/
-						
-					} else if(byte == 0x00) {
-						frameType = HighOrder;
-					} else {
-						Logger.debug("Invalid byte, expected 0x00 or 0x80+");
-					}
-					
-				} else if(frameType == FixedLen) {
-
-					/*if(bytesLeft > 0 && socket.bytesAvailable > 0) {
-						
-						var bytes:uint = Math.min(bytesLeft, socket.bytesAvailable);
-						
-						bytesLeft = bytesLeft - bytes;
-						buffer.writeBytes(socket, 0, bytes);
-						
-						if(bytesLeft == 0) {
-							dispatchEvent(new WebSocketEvent(WebSocketEvent.MESSAGE, buffer.readUTFBytes(buffer.length), this));
-							frameType = Unknown;
-						}
-					} else {
-						frameType = Unknown;
-					}*/
-				
-				} else if(frameType == HighOrder) {
-
-					if(byte == 0xFF) {
-						buffer.position = 0;
-						dispatchEvent(new WebSocketEvent(WebSocketEvent.MESSAGE, buffer.readUTFBytes(buffer.length), this));
-						frameType = Unknown;
-					} else {
-						buffer.writeByte(byte);
-					}
-				}
-			}
-			
+			processor.process(e, socket); 
 		}
-
-		private function completeHandshake():void {
-
-			while(socket.bytesAvailable > 0) {
-				
-				byte = socket.readByte();
-				buffer.writeByte(byte);
-
-				if(byte == 0x0a || byte == 0x0d) { //\n or \r
-					headersum += byte;
-				} else {
-					headersum = 0;
-				}
-				
-				if(headersum == 0x2e) { //\r\n\r\n
-
-					buffer.position = 0;
-					
-					var response:String = buffer.readUTFBytes(buffer.length);
-					var entries	:Array  = response.split(/\r\n/);
-					
-					if(!entries[0].match(/HTTP\/1.1 101/)) {
-						return close("Invalid Response Header");
-					}
-					
-					//get 2nd to last header (omit empties)
-					for(var i:int = 1;i < entries.length - 2;i++) {
-						var kvp:Array = entries[i].match(/^(\S+):\s+(.+)$/);
-						if(!kvp) {
-							return close("Invalid header: " + entries[i]);
-						}
-						headers[kvp[1]] = kvp[2];
-					}
-
-					if(headers["Connection"] != "Upgrade") {
-						return close("Invalid connection!");
-					}
-					
-					if(headers["Upgrade"] != "WebSocket") {
-						return close("Invalid upgrade!");
-					}
-
-					state = Connected;
-
-					return;
-				}
-			}
-		}
+		
+		
 		
 		private function onClose(e:Event):void {
 			state = Closed;
@@ -303,12 +182,13 @@ package org.ds.websocket
 			
 			//increases the size of the swf 30 fold :(
 			/*if(secure) {
-				var config:TLSConfig = new TLSConfig(TLSEngine.CLIENT);
-				config.trustSelfSignedCertificates = true;
-				config.ignoreCommonNameMismatch = true;
-				socket = new TLSSocket(null, 0, config);
-			} else {*/
-			//}
+			var config:TLSConfig = new TLSConfig(TLSEngine.CLIENT);
+			//config.trustSelfSignedCertificates = true;
+			//config.ignoreCommonNameMismatch = true;
+			socket = new TLSSocket(null, 0, config);
+			} else {
+			socket = new Socket();
+			}*/
 			
 			socket = new Socket();
 			socket.addEventListener(ProgressEvent.SOCKET_DATA, onSocketEvent);

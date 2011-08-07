@@ -37,24 +37,16 @@ package com.hurlant.math
 		bi_internal var s:int; // sign
 		bi_internal var a:Array; // chunks
 		
-		/**
-		 * 
-		 * @param value
-		 * @param radix  WARNING: If value is ByteArray, this holds the number of bytes to use.
-		 * @param unsigned
-		 * 
-		 */
-		public function BigInteger(value:* = null, radix:int = 0, unsigned:Boolean = false) {
+		public function BigInteger(value:* = null, radix:int = 0) {
 			a = new Array;
 			if (value is String) {
-				if (radix&&radix!=16) throw new Error("BigInteger construction with radix!=16 is not supported.");
 				value = Hex.toArray(value);
 				radix=0;
 			}
 			if (value is ByteArray) {
 				var array:ByteArray = value as ByteArray;
 				var length:int = radix || (array.length - array.position);
-				fromArray(array, length, unsigned);
+				fromArray(array, length);
 			}
 		}
 		public function dispose():void {
@@ -154,9 +146,6 @@ package com.hurlant.math
 		 * precision can be lost if it just can't fit.
 		 */
 		public function valueOf():Number {
-			if (s==-1) {
-				return -negate().valueOf();
-			}
 			var coef:Number = 1;
 			var value:Number = 0;
 			for (var i:uint=0;i<t;i++) {
@@ -274,7 +263,7 @@ package com.hurlant.math
 		 * starting a current position
 		 * If length goes beyond the array, pad with zeroes.
 		 */
-		bi_internal function fromArray(value:ByteArray, length:int, unsigned:Boolean = false):void {
+		bi_internal function fromArray(value:ByteArray, length:int):void {
 			var p:int = value.position;
 			var i:int = p+length;
 			var sh:int = 0;
@@ -293,12 +282,6 @@ package com.hurlant.math
 				}
 				sh += k;
 				if (sh >= DB) sh -= DB;
-			}
-			if (!unsigned && (value[0]&0x80)==0x80) {
-				s = -1;
-				if (sh > 0) {
-					a[t-1] |= ((1<<(DB-sh))-1)<<sh;
-				}
 			}
 			clamp();
 			value.position = Math.min(p+length,value.length);
