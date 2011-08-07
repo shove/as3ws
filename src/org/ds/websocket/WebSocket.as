@@ -57,7 +57,7 @@ package org.ds.websocket
 		
 		private var socket    :Socket;
 		private var settings  :Object;
-		private var headers   :Object     = {};
+		//private var headers   :Object     = {};
 		private var queue   :Array      = [];
 		
 		private var decoder:WebSocketDecoder = new WebSocketDecoder();
@@ -70,11 +70,12 @@ package org.ds.websocket
 			super(Closed);
 			
 			negotiator.addEventListener("Complete", function():void {
+				processor = decoder;
 				state = Connected;
 			});
 			
 			negotiator.addEventListener("Fail", function():void {
-				state = Closed;
+				close();
 			});
 			
 			defineTransition("*", Connected, flushQueue);
@@ -164,8 +165,6 @@ package org.ds.websocket
 		private function onSocketEvent(e:ProgressEvent):void {
 			processor.process(e, socket); 
 		}
-		
-		
 		
 		private function onClose(e:Event):void {
 			state = Closed;
