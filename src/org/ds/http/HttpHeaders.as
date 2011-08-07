@@ -33,5 +33,17 @@ package org.ds.http
 		public function exists(header:String):Boolean {
 			return headers.hasOwnProperty(header);
 		}
+		
+		public function get(header:String):String {
+			return headers[header];
+		}
+		
+		public function encode():String {
+			var result:String = status + "\r\n";
+			for(var name:String in headers) {
+				result += name + ": " + headers[name] + "\r\n";
+			}
+			return result += "\r\n";
+		}
 	}
 }

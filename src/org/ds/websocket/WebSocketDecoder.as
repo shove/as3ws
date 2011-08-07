@@ -5,40 +5,17 @@ package org.ds.websocket
 	import flash.net.Socket;
 	import flash.utils.ByteArray;
 	
+	import org.ds.logging.Logger;
+	
 	public class WebSocketDecoder extends EventDispatcher implements WebSocketProcessor
-	{
-		private static const OP_CONTINUATION:uint = 0x0;
-		private static const OP_TEXT_FRAME:uint = 0x1;
-		private static const OP_BINARY_FRAME:uint = 0x2;
-		private static const OP_CLOSE:uint = 0x8;
-		private static const OP_PING:uint = 0x9;
-		private static const OP_PONG:uint = 0xA;
-		
+	{		
 		private var fragmented:Boolean = false;
 		private var buffer:ByteArray;
 		
 		public function WebSocketDecoder() {
 		}
 		
-		/*
-		+-+-+-+-+-------+-+-------------+-------------------------------+
-		|F|R|R|R| opcode|M| Payload len |    Extended payload length    |
-		|I|S|S|S|  (4)  |A|     (7)     |             (16/63)           |
-		|N|V|V|V|       |S|             |   (if payload len==126/127)   |
-		| |1|2|3|       |K|             |                               |
-		+-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
-		|     Extended payload length continued, if payload len == 127  |
-		+ - - - - - - - - - - - - - - - +-------------------------------+
-		|                               |Masking-key, if MASK set to 1  |
-		+-------------------------------+-------------------------------+
-		| Masking-key (continued)       |          Payload Data         |
-		+-------------------------------- - - - - - - - - - - - - - - - +
-		:                     Payload Data continued ...                :
-		+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
-		|                     Payload Data continued ...                |
-		+---------------------------------------------------------------+
-		*/
-		public function process(e:ProgressEvent, socket:Socket):void {
+		public function process(socket:Socket):* {
 			
 			var h1:uint = socket.readUnsignedByte();
 			var h2:uint = socket.readUnsignedByte();
@@ -79,47 +56,49 @@ package org.ds.websocket
 			// Read the data into an allocated buffer
 			// for unmasking... or not (must be though)
 			var data:ByteArray = new ByteArray();
-			socket.readBytes(data);
+			socket.readBytes(data, 0, len);
 			
 			if(masked) {
 				for(var i:uint = 0; i < data.length;i++) {
 					data[i] = (data[i] ^ (mask >>> ((3 - (i % 4)) * 8)));
 				}
 			}
-			
+
 			switch(op) {
-				case OP_CONTINUATION:
+				case WebSocketOps.CONTINUATION:
 					buffer.writeBytes(data);
 					if(!fragmented) {
-						//dispatchEvent(new Event("message", buffer));
+						var result:String = buffer.readUTFBytes(buffer.length);
+						buffer.clear();
+						return result;
 					}
 					break;
-				case OP_TEXT_FRAME:
+				case WebSocketOps.TEXT_FRAME:
 					if(!fragmented) {
 						data.position = 0;
-						dispatchEvent(new WebSocketEvent(WebSocketEvent.MESSAGE, data.readUTFBytes(data.length)));
-						return;
+						return data.readUTFBytes(data.length);
 					}
 					buffer.writeBytes(data);
 					break;
-				case OP_BINARY_FRAME:
+				case WebSocketOps.BINARY_FRAME:
 					//TODO: Implement Support
 					break;
-				case OP_CLOSE:
+				case WebSocketOps.CLOSE:
 					socket.close();
 					break;
-				case OP_PING:
-					socket.writeByte(OP_PONG | 0x80);
+				case WebSocketOps.PING:
+					socket.writeByte(WebSocketOps.PONG | 0x80);
 					socket.writeByte(0);
 					socket.flush();
 					break;
-				case OP_PONG:
+				case WebSocketOps.PONG:
 					break;
 				default:
 					socket.close();
 					break;
 			}
 			
+			return false;
 		}
 	}
 }

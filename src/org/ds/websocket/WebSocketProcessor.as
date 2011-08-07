@@ -5,6 +5,6 @@ package org.ds.websocket
 	
 	public interface WebSocketProcessor
 	{
-		function process(e:ProgressEvent, socket:Socket):void;
+		function process(socket:Socket):*;
 	}
 }

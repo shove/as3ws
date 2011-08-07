@@ -55,10 +55,9 @@ package org.ds.websocket
 		 * Instance Properties & Methods
 		 */ 
 		
-		private var socket    :Socket;
-		private var settings  :Object;
-		//private var headers   :Object     = {};
-		private var queue   :Array      = [];
+		private var socket:Socket;
+		private var settings:Object;
+		private var queue:Array = [];
 		
 		private var decoder:WebSocketDecoder = new WebSocketDecoder();
 		private var negotiator:WebSocketNegotiator = new WebSocketNegotiator();
@@ -69,13 +68,17 @@ package org.ds.websocket
 		{
 			super(Closed);
 			
-			negotiator.addEventListener("Complete", function():void {
+			negotiator.addEventListener(WebSocketNegotiator.Complete, function():void {
 				processor = decoder;
 				state = Connected;
 			});
 			
-			negotiator.addEventListener("Fail", function():void {
+			negotiator.addEventListener(WebSocketNegotiator.Failed, function():void {
 				close();
+			});
+			
+			decoder.addEventListener(WebSocketEvent.MESSAGE, function(e:WebSocketEvent):void {
+				dispatchEvent(e);
 			});
 			
 			defineTransition("*", Connected, flushQueue);
@@ -97,11 +100,11 @@ package org.ds.websocket
 				Logger.info(message);
 			}
 			if(socket.connected) {
-				state = Closed;
-				socket.writeByte(0xFF);
-				socket.writeByte(0x00);
+				socket.writeByte(0x88);
+				socket.writeByte(0);
 				socket.flush();
 				socket.close();
+				state = Closed;
 			}
 		}
 		
@@ -110,10 +113,11 @@ package org.ds.websocket
 		 */ 
 		public function send(message:String):void {
 			if(state == Connected) {
-				socket.writeByte(0x00);
-				socket.writeUTFBytes(message);
-				socket.writeByte(0xff);
-				socket.flush();
+				var encoded:ByteArray = WebSocketEncoder.encode(message);
+				if(encoded) {
+					socket.writeBytes(encoded);
+					socket.flush();
+				}
 			} else {
 				queue.push(message);
 			}
@@ -145,8 +149,9 @@ package org.ds.websocket
 		
 		/**
 		 * Once the socket connection is open, we send
-		 * out the HTTP style headers to handshake and
-		 * negotiate the connection 
+		 * out the HTTP headers to setup the websocket
+		 * connection.  We delegate processing to the
+		 * a WebSocketNegotiator.
 		 */ 
 		private function onOpen(e:Event):void {
 			state = Negotiating;
@@ -157,13 +162,19 @@ package org.ds.websocket
 		}
 		
 		/**
-		 * If the state is Negotiating, then we expect a
-		 * http style header response, and we parse it out.
-		 * Otherwise, we treat the data as web socket frames
-		 * and parse the data out based on the frame type
+		 * Delegate the to current processor. Either the
+		 * WebSocketNegotiator or the
+		 * WebSocketDecoder
 		 */ 
 		private function onSocketEvent(e:ProgressEvent):void {
-			processor.process(e, socket); 
+			while(socket.bytesAvailable) {
+				var result:* = processor.process(socket); 
+				if(!result) {
+					continue;
+				} else if(result is String) {
+					dispatchEvent(new WebSocketEvent(WebSocketEvent.MESSAGE, result));
+				}
+			}
 		}
 		
 		private function onClose(e:Event):void {

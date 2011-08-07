@@ -1,9 +1,8 @@
 package org.ds.websocket
 {
+	import com.hurlant.crypto.hash.SHA1;
 	import com.hurlant.util.Base64;
-	import com.hurlant.util.der.Integer;
 	
-	import flash.events.ProgressEvent;
 	import flash.net.Socket;
 	import flash.utils.ByteArray;
 	
@@ -11,6 +10,7 @@ package org.ds.websocket
 	
 	import org.ds.fsm.StateMachine;
 	import org.ds.http.HttpHeaders;
+	import org.ds.logging.Logger;
 	
 	public class WebSocketNegotiator extends StateMachine implements WebSocketProcessor
 	{
@@ -26,9 +26,12 @@ package org.ds.websocket
 		
 		public function WebSocketNegotiator() {
 			super(Pending);
+			
+			defineTransition(Pending, Failed, onFail);
+			defineTransition(Pending, Complete, onComplete);
 		}
 		
-		public function process(e:ProgressEvent, socket:Socket):void {
+		public function process(socket:Socket):* {
 			
 			while(socket.bytesAvailable > 0) {
 				
@@ -39,21 +42,31 @@ package org.ds.websocket
 				buffer.writeByte(byte);
 				
 				// Check to see if we have 2x CRLF
+				// signifying the end of the headers
 				if(quad == 0x0d0a0d0a) {
 					buffer.position = 0;
 					
 					var headers:HttpHeaders = new HttpHeaders(buffer);
-					
+
 					var valid:Boolean = 
 						headers.existsAs("Connection", "Upgrade") &&
 						headers.existsAs("Upgrade", "WebSocket") && 
-						headers.existsAs("Sec-WebSocket-Accept", "");
+						headers.existsAs("Sec-WebSocket-Accept", responseKey);
 					
 					state = valid ? Complete : Failed;
 					
-					return;
+					return true;
 				}
 			}
+			
+			return false;
+		}
+		
+		private function get responseKey():String {
+			var buffer:ByteArray = new ByteArray();
+			buffer.writeUTFBytes(key);
+			buffer.writeUTFBytes("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+			return Base64.encodeByteArray(new SHA1().hash(buffer));
 		}
 		
 		public function buildRequest(host:String, path:String):String {
@@ -66,6 +79,14 @@ package org.ds.websocket
 				+ "Sec-WebSocket-Key: {3}{0}"
 				+ "Sec-WebSocket-Version: 8{0}"
 				+ "Sec-WebSocket-Origin: null{0}{0}", "\r\n", path, host, key)
+		}
+		
+		private function onFail():void {
+			Logger.log("Handhsake failed due to invalid response");
+		}
+		
+		private function onComplete():void {
+			Logger.info("Handhsake completed");
 		}
 	}
 }

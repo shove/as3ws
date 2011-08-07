@@ -30,7 +30,6 @@ package org.ds.logging
 	
 	public class Logger extends EventDispatcher
 	{
-		
 		private static var 	_instance	:Logger  = null;
 		private var			_level		:uint 	 = 3;
 		
